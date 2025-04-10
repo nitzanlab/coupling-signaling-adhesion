@@ -1,0 +1,178 @@
+<MorpheusModel version="4">
+    <Description>
+        <Title>morpheus_</Title>
+        <Details>&#xd;
+       300 cells, const&#xd;
+        </Details>
+    </Description>
+    <Global>
+        <Variable symbol="N" value="0"/>
+        <Variable symbol="D" value="0"/>
+        <Variable symbol="I" value="0"/>
+        <Variable symbol="E" value="0"/>
+        <Variable symbol="colour" value="0"/>
+    </Global>
+    <Space>
+        <SpaceSymbol symbol="l"/>
+        <Lattice class="square">
+            <Size symbol="size" value="200,200,0"/>
+            <BoundaryConditions>
+                <Condition type="noflux" boundary="x"/>
+                <Condition type="noflux" boundary="y"/>
+            </BoundaryConditions>
+            <Neighborhood>
+                <Order>1</Order>
+            </Neighborhood>
+        </Lattice>
+    </Space>
+    <Time>
+        <StartTime value="0"/>
+        <StopTime value="5"/>
+        <TimeSymbol symbol="time"/>
+    </Time>
+    <CellTypes>
+        <CellType class="medium" name="medium"/>
+        <!-- A type cells: the "sender" cells, hiD loN -->
+        <CellType class="biological" name="A">
+            <VolumeConstraint target="50" strength="1"/>
+            <Property symbol="N" name="notch" value="0.0"/>
+            <Property symbol="Nn" name="notch_Neighbours" value="0.0"/>
+            <Property symbol="D" name="delta" value="3e3"/>
+            <Property symbol="Dn" name="delta_Neighbours" value="0.0"/>
+            <Property symbol="I" name="NICD" value="0.0"/>
+            <Property symbol="E" name="Ecad" value="0.0"/>
+            <Property symbol="colour" value="-1.0"/>
+            <NeighborhoodReporter>
+                <Input scaling="cell" value="N"/>
+                <Output symbol-ref="Nn" mapping="average"/>
+            </NeighborhoodReporter>
+            <NeighborhoodReporter>
+                <Input scaling="cell" value="D"/>
+                <Output symbol-ref="Dn" mapping="average"/>
+            </NeighborhoodReporter>
+            <System time-step="0.1" time-scaling="1" solver="Runge-Kutta [fixed, O(4)]">
+                <Constant symbol="Kt" value="5e-5"/>
+                <Constant symbol="D0" value="1000"/>
+                <Constant symbol="gamma" value="0.1"/>
+                <Constant symbol="p" value="2"/>
+                <DiffEqn symbol-ref="D">
+                    <Expression> D0 - Kt*D*Nn - gamma*D</Expression>
+                </DiffEqn>
+            </System>
+            <SurfaceConstraint target="25" strength="0" mode="surface"/>
+            <Property symbol="X" value="0"/>
+        </CellType>
+        <!-- B type cells: the "reciever" cells, loD hiN (express Ecad) -->
+        <CellType class="biological" name="B">
+            <VolumeConstraint target="50" strength="1"/>
+            <Property symbol="N" name="notch" value="1e3"/>
+            <Property symbol="Nn" name="notch_Neighbours" value="0.0"/>
+            <Property symbol="D" name="delta" value="0.0"/>
+            <Property symbol="Dn" name="delta_Neighbours" value="0.0"/>
+            <Property symbol="I" name="NICD" value="0.0"/>
+            <Property symbol="E" name="Ecad" value="0"/>
+            <Property symbol="colour" value="0.0"/>
+            <NeighborhoodReporter>
+                <Input scaling="cell" value="N"/>
+                <Output symbol-ref="Nn" mapping="average"/>
+            </NeighborhoodReporter>
+            <NeighborhoodReporter>
+                <Input scaling="cell" value="D"/>
+                <Output symbol-ref="Dn" mapping="average"/>
+            </NeighborhoodReporter>
+            <System time-step="0.1" time-scaling="1" solver="Runge-Kutta [fixed, O(4)]">
+                <Constant symbol="Kt" value="5e-5"/>
+                <Constant symbol="N0" value="500"/>
+                <Constant symbol="I0" value="200"/>
+                <Constant symbol="gammaI" value="0.5"/>
+                <Constant symbol="gamma" value="0.1"/>
+                <Constant symbol="p" value="20"/>
+                <DiffEqn symbol-ref="N">
+                    <Expression>N0*(1+I^p/(I0^p+I^p)) - Kt*N*Dn - gamma*N</Expression>
+                </DiffEqn>
+                <DiffEqn symbol-ref="I">
+                    <Expression>Kt*N*Dn - gammaI*I </Expression>
+                </DiffEqn>
+                <DiffEqn symbol-ref="E">
+                    <Expression> 100*((I^p/((X*I0*0.5)^p+I^p) - gamma*E))</Expression>
+                </DiffEqn>
+                <Rule symbol-ref="colour">
+                    <Expression>E/10</Expression>
+                </Rule>
+            </System>
+            <SurfaceConstraint target="25" strength="0" mode="surface"/>
+            <Property symbol="X" value="rand_uni(0.1,10)"/>
+        </CellType>
+    </CellTypes>
+    <CPM>
+        <Interaction>
+            <Contact type1="A" type2="A" value="20"/>
+            <Contact type1="A" type2="medium" value="20"/>
+            <Contact type1="B" type2="medium" value="20"/>
+            <Contact type1="A" type2="B" value="20"/>
+            <Contact type1="B" type2="B" value="10">
+                <HomophilicAdhesion strength="0" adhesive="E"/>
+            </Contact>
+        </Interaction>
+        <MonteCarloSampler stepper="edgelist">
+            <!-- cells should be sorted within 24 hrs -->
+            <MCSDuration value="0.0001"/>
+            <Neighborhood>
+                <Order>2</Order>
+            </Neighborhood>
+            <MetropolisKinetics temperature="10"/>
+        </MonteCarloSampler>
+        <ShapeSurface scaling="norm">
+            <Neighborhood>
+                <Order>6</Order>
+            </Neighborhood>
+        </ShapeSurface>
+    </CPM>
+    <CellPopulations>
+        <Population type="A" size="0">
+            <InitCircle number-of-cells="100" mode="random">
+                <Dimensions radius="20" center="size.x/2, size.y/2, 0"/>
+            </InitCircle>
+        </Population>
+        <Population type="B" size="0">
+            <InitCircle number-of-cells="20" mode="random">
+                <Dimensions radius="3" center="size.x/2, size.y/2, 0"/>
+            </InitCircle>
+        </Population>
+    </CellPopulations>
+    <Analysis>
+        <Logger time-step="0.01">
+            <Input>
+                <Symbol symbol-ref="D"/>
+                <Symbol symbol-ref="N"/>
+                <Symbol symbol-ref="I"/>
+                <Symbol symbol-ref="E"/>
+                <Symbol symbol-ref="cell.type"/>
+                <Symbol symbol-ref="cell.center.x"/>
+                <Symbol symbol-ref="cell.center.y"/>
+                <Symbol symbol-ref="Dn"/>
+                <Symbol symbol-ref="X"/>
+            </Input>
+            <Output>
+                <TextOutput/>
+            </Output>
+        </Logger>
+        <Gnuplotter time-step="0.01" decorate="false">
+            <Terminal name="png" size="800 400 0" persist="true"/>
+            <Plot>
+                <Cells max="1" min="-1" value="colour">
+                    <ColorMap>
+                        <Color value="-1" color="blue"/>
+                        <Color value="0.0" color="grey"/>
+                        <Color value="1.0" color="green"/>
+                    </ColorMap>
+                </Cells>
+            </Plot>
+        </Gnuplotter>
+        <ModelGraph format="dot" reduced="false" include-tags="#untagged"/>
+        <TiffPlotter format="guess" time-step="0.01">
+            <Channel symbol-ref="cell.id" exclude-medium="true"/>
+            <Channel symbol-ref="cell.type" exclude-medium="true"/>
+        </TiffPlotter>
+    </Analysis>
+</MorpheusModel>
